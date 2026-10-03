@@ -1,0 +1,10 @@
+pipeline_name: "rick_and_morty"
+url: "https://rickandmortyapi.com/api/character"
+data_key: "results"
+output_path: "rick_and_morty"
+schema:
+  id: "int32"
+  name: "string"
+  status: "string"
+  species: "string"
+  gender: "string"

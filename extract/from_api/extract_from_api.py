@@ -33,9 +33,16 @@ POLARS_TYPE_MAP = {
 def extract_data(config: dict) -> list[dict]:
     url = config["url"]
     params = config.get("params", {})
+    headers = config.get("headers", {}) # <--- NUEVO
     
+    # Muchas APIs bloquean el User-Agent por defecto de Python.
+    # Si el YAML no define uno, ponemos uno genérico de nuestro proyecto.
+    if "User-Agent" not in headers:
+        headers["User-Agent"] = "DataEngPortfolio/1.0 (manmayer@gmail.com)"
+
     logger.info(f"Obteniendo datos desde {url}...")
-    response = requests.get(url, params=params)
+    # Agregamos los headers a la petición
+    response = requests.get(url, params=params, headers=headers)
     response.raise_for_status()
     
     raw_json = response.json()
@@ -71,10 +78,10 @@ def process_and_save(raw_data: list[dict], config: dict):
     
     now = datetime.now()
     # BASE_DIR asegura que la carpeta 'data' se cree en la raíz del repo
-    partition_dir = BASE_DIR / "data" / output_path / f"year={now.year}" / f"month={now.month:02d}" / f"day={now.day:02d}"
+    partition_dir = BASE_DIR / "extract_results" / "raw_data_from_api" / output_path 
     partition_dir.mkdir(parents=True, exist_ok=True)
     
-    file_path = partition_dir / f"{pipeline_name}_snapshot.parquet"
+    file_path = partition_dir / f"{pipeline_name}_{now.strftime('%Y%m%d_%H%M%S')}.parquet"
     df_clean.write_parquet(file_path)
     
     logger.info(f"{pipeline_name}: {df_clean.height} filas guardadas en {file_path}")
