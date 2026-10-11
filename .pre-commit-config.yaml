@@ -1,0 +1,53 @@
+# ==============================================================================
+# pre-commit hook configuration
+#
+# Instalación:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Ejecución manual sobre todos los archivos:
+#   pre-commit run --all-files
+# ==============================================================================
+
+repos:
+  # ----------------------------------------------------------------------------
+  # Checks generales de archivos
+  # ----------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace        # Elimina espacios al final de línea
+      - id: end-of-file-fixer          # Asegura newline al final de cada archivo
+      - id: check-yaml                 # Valida sintaxis de archivos YAML
+      - id: check-added-large-files    # Bloquea archivos > 500 KB (configurable)
+        args: ["--maxkb=500"]
+      - id: check-merge-conflict       # Detecta marcadores de conflicto de merge
+      - id: check-case-conflict        # Evita conflictos de mayúsculas en nombres de archivo
+      - id: mixed-line-ending          # Fuerza consistencia de saltos de línea
+        args: ["--fix=lf"]
+      - id: debug-statements           # Detecta sentencias debug (pdb, breakpoint)
+
+  # ----------------------------------------------------------------------------
+  # Linting y formateo Python — ruff (reemplaza flake8 + isort + black)
+  # ----------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.1
+    hooks:
+      - id: ruff                       # Linter: aplica correcciones automáticas
+        args: ["--fix"]
+      - id: ruff-format                # Formatter: equivalente a black
+
+  # ----------------------------------------------------------------------------
+  # Detección de secretos y credenciales
+  # Previene commits accidentales de contraseñas, tokens y claves API.
+  # ----------------------------------------------------------------------------
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+        exclude: |
+          (?x)^(
+            \.env\.example|
+            .*\.md
+          )$

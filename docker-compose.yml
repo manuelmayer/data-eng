@@ -1,16 +1,103 @@
+# ==============================================================================
+# Plataforma de Ingeniería de Datos - Orquestación y Almacenamiento Local
+#
+# Gestión de secretos:
+# - Las credenciales y variables de entorno se cargan desde el archivo .env.
+# - El archivo .env se encuentra excluido del control de versiones (.gitignore).
+# - Utilice .env.example como plantilla de configuración inicial.
+# ==============================================================================
+
 services:
+  # ----------------------------------------------------------------------------
+  # Servicio de Almacenamiento de Objetos (Data Lake / S3 Mock)
+  # ----------------------------------------------------------------------------
   minio:
     image: bitnamilegacy/minio:2025.7.23-debian-12-r5
     container_name: minio_datalake
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:9000"  # API S3
+      - "9001:9001"  # Consola Web UI
     environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /bitnami/minio/data --console-address ":9001"
     volumes:
       - minio_storage:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - data-eng-net
+
+  # ----------------------------------------------------------------------------
+  # Base de Datos Relacional (Metastore para Apache Airflow)
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_metastore
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Por razones de seguridad, el puerto no se expone al host por defecto.
+    # Descomentar únicamente si se requiere acceso directo externo (e.g., cliente SQL/DBeaver).
+    # ports:
+    #   - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - data-eng-net
+
+  # ----------------------------------------------------------------------------
+  # Orquestador de Flujos de Trabajo (Apache Airflow)
+  # ----------------------------------------------------------------------------
+  airflow:
+    build:
+      context: .
+      dockerfile: airflow/Dockerfile
+    image: data-eng-airflow:slim-py3.14
+    container_name: airflow_orchestrator
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    # Inyección de variables de entorno para tareas y ejecución de DAGs
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_WWW_USER_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_WWW_USER_PASSWORD}
+      # Endpoint S3 para comunicación intra-contenedor hacia MinIO
+      AWS_ENDPOINT_URL: http://minio:9000
+    ports:
+      - "8080:8080"  # Interfaz Web de Airflow
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - .:/opt/airflow/project_code
+    command: >
+      bash -c "airflow db migrate && airflow standalone"
+    networks:
+      - data-eng-net
 
 volumes:
   minio_storage:
+  postgres_data:
+
+networks:
+  data-eng-net:
+    driver: bridge
