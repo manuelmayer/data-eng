@@ -1,0 +1,9 @@
+# Dependencias de desarrollo — NO incluidas en la imagen de producción de Airflow.
+# Instalar localmente para contribuir al proyecto:
+#
+#   pip install -r requirements-dev.txt
+#   pre-commit install
+
+pre-commit>=3.8.0
+detect-secrets>=1.5.0
+ruff>=0.9.1

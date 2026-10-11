@@ -2,3 +2,6 @@ requests
 polars
 pyarrow
 PyYAML
+boto3
+s3fs
+python-dotenv
