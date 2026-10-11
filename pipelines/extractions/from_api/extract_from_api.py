@@ -1,3 +1,4 @@
+import sys
 import yaml
 import requests
 import logging
@@ -106,22 +107,36 @@ def save_to_landing(raw_data: list[dict], config: dict) -> str:
     return s3_key
 
 
+def process_config(config_path: Path) -> None:
+    """Procesa un archivo de configuración específico: extrae y guarda en Landing."""
+    logger.info(f"--- Pipeline: {config_path.stem} ---")
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+
+    raw_data = extract_data(config)
+    save_to_landing(raw_data, config)
+
+
 def main():
+    ensure_bucket_exists()
+
+    # Si se pasa la ruta de un YAML por argumento CLI, se ejecuta solo ese pipeline
+    if len(sys.argv) > 1:
+        target_path = Path(sys.argv[1])
+        if not target_path.exists():
+            logger.error(f"Archivo de configuración no encontrado: {target_path}")
+            sys.exit(1)
+        process_config(target_path)
+        return
+
+    # Si no hay argumentos, se procesan todos los YAMLs presentes en CONFIG_DIR
     if not CONFIG_DIR.exists():
         logger.error(f"Directorio de configuraciones no encontrado: {CONFIG_DIR}")
         return
 
-    ensure_bucket_exists()
-
     for config_file in CONFIG_DIR.glob("*.yml"):
-        logger.info(f"--- Pipeline: {config_file.stem} ---")
         try:
-            with open(config_file, "r") as f:
-                config = yaml.safe_load(f)
-
-            raw_data = extract_data(config)
-            save_to_landing(raw_data, config)
-
+            process_config(config_file)
         except Exception as e:
             logger.exception(f"Error en pipeline '{config_file.name}': {e}")
 

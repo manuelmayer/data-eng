@@ -142,20 +142,23 @@ docker compose logs -f airflow
 ```
 data-eng/
 ├── airflow/
-│   ├── Dockerfile                    # Imagen personalizada de Airflow
+│   ├── Dockerfile                       # Imagen personalizada de Airflow
 │   ├── dags/
-│   │   └── dag_generator.py          # Generador dinámico de DAGs desde YMLs
-│   ├── logs/                         # Logs de ejecución (generados en runtime)
-│   └── plugins/                      # Plugins y operadores custom
+│   │   └── to_landing_dag_generator.py  # Generador dinámico de DAGs a Landing
+│   ├── logs/                            # Logs de ejecución (generados en runtime)
+│   └── plugins/                         # Plugins y operadores custom
 ├── pipelines/
-│   ├── configs/                      # Un YAML por pipeline (dag_id, schedule, source_type, etc.)
-│   │   └── example_api.yml           # Plantilla de configuración
-│   └── extract/
-│       └── api/
-│           └── extract_from_api.py   # Extracción desde APIs REST → Landing (MinIO)
-├── docker-compose.yml                # Orquestación de servicios
-├── requirements.txt                  # Dependencias Python del pipeline
-├── .env.example                      # Plantilla de variables de entorno
+│   └── extractions/                     # Módulos de extracción organizados por origen
+│       ├── from_api/
+│       │   ├── configs/                 # Configuraciones YAML de APIs
+│       │   │   └── example_api.yml      # Plantilla de configuración
+│       │   └── extract_from_api.py      # Extracción desde APIs REST → Landing (MinIO)
+│       └── from_db/                     # (Próximo) Extracciones desde bases de datos
+│           ├── configs/
+│           └── extract_from_db.py
+├── docker-compose.yml                   # Orquestación de servicios
+├── requirements.txt                     # Dependencias Python del pipeline
+├── .env.example                         # Plantilla de variables de entorno
 └── .gitignore
 ```
 
@@ -165,7 +168,7 @@ data-eng/
 
 1. Copiar la plantilla de configuración:
    ```bash
-   cp pipelines/configs/example_api.yml pipelines/configs/mi_pipeline.yml
+   cp pipelines/extractions/from_api/configs/example_api.yml pipelines/extractions/from_api/configs/mi_pipeline.yml
    ```
 
 2. Editar `mi_pipeline.yml` con los valores del nuevo origen:
@@ -179,13 +182,18 @@ data-eng/
    data_key: results   # o null si la respuesta ya es una lista
    ```
 
-3. Reiniciar (o recargar) Airflow. El DAG aparecerá automáticamente en la UI.
+3. Airflow detectará el archivo automáticamente en `to_landing_dag_generator.py` y creará el DAG en la UI.
 
-### Agregar un nuevo tipo de origen
+### Agregar un nuevo tipo de origen (ej. base de datos)
 
-1. Crear el script en `pipelines/extract/<nuevo_origen>/extract_from_<nuevo_origen>.py`
-2. El script debe aceptar el path del YAML como argumento: `python script.py <config.yml>`
-3. Registrar el `source_type` en `SOURCE_SCRIPTS` de `airflow/dags/dag_generator.py`
+1. Crear la carpeta del origen con su script y directorio de configs:
+   ```text
+   pipelines/extractions/from_db/
+   ├── configs/
+   └── extract_from_db.py
+   ```
+2. Asegurar que el script acepte la ruta del YAML como argumento: `python extract_from_db.py <config.yml>`.
+3. Registrar el `source_type: "db"` en `to_landing_dag_generator.py` (o seguir la convención `from_<source_type>/extract_from_<source_type>.py`).
 
 ---
 

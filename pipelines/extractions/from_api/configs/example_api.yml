@@ -1,0 +1,34 @@
+# ==============================================================================
+# Configuración de Pipeline: Extracción desde API REST hacia Landing (MinIO)
+#
+# Ubicación: pipelines/extractions/from_api/configs/<nombre_pipeline>.yml
+#
+# Al iniciar Airflow, 'to_landing_dag_generator.py' lee este archivo
+# y genera automáticamente el DAG correspondiente en la UI.
+# ==============================================================================
+
+# --- Parámetros de Orquestación en Airflow ---
+dag_id: landing_example_api              # Identificador único del DAG en Airflow
+pipeline_name: example_api               # Prefijo para la ruta del objeto en MinIO
+schedule: "@daily"                       # Frecuencia de ejecución (@daily, @hourly, cron expression o null)
+start_date: "2025-01-01"                # Fecha de inicio (formato YYYY-MM-DD)
+catchup: false                           # Si debe ejecutar corridas históricas pendientes
+retries: 1                               # Reintentos de la tarea ante fallos
+tags:                                    # Tags visibles en la UI de Airflow
+  - landing
+  - api
+
+# --- Tipo de Origen ---
+source_type: api                         # Determina el script a invocar (pipelines/extractions/from_api/)
+
+# --- Configuración del Endpoint HTTP ---
+url: https://api.example.com/v1/data    # URL del endpoint a consultar
+data_key: null                           # Clave donde se encuentra la lista de registros en el JSON (null si la raíz es la lista)
+
+params:                                  # Query parameters opcionales
+  # limit: 100
+  # page: 1
+
+headers:                                 # Encabezados HTTP opcionales (User-Agent se configura por defecto)
+  # Authorization: Bearer <token>
+  # Accept: application/json
